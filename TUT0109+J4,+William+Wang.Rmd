@@ -1,0 +1,477 @@
+---
+title: "Final project --- Internet usage around the world"
+author: "William Wang(1004278818)"
+date: "STA 130 TUT110"
+output:
+  ioslides_presentation: default
+  beamer_presentation: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+library(tidyverse)
+path <- "https://raw.githubusercontent.com/ntaback/UofT_STA130/master/Fall2018/Finalproject/"
+
+##calling all the datasets needed
+democracyindex2017 <- read_csv(paste0(path,"democracyindex2017.csv"))
+education_cia2017 <- read_csv(paste0(path,"education_cia2017.csv"))
+gdpppp_cia2017 <- read_csv(paste0(path,"gdpppp_cia2017.csv"))
+lifeexpect_cia2017 <- read_csv(paste0(path,"lifeexpect_cia2017.csv"))
+healthexpend_cia2017 <- read_csv(paste0(path,"healthexpend_cia2017.csv"))
+internetusers_cia2017 <- read_csv(paste0(path,"internetusers_cia2017.csv"))
+population_cia2017 <- read_csv(paste0(path,"population_cia2017.csv"))
+world_regions <- read_csv(paste0(path,"world_regions.csv"))
+```
+
+
+```{r, include=FALSE}
+
+iu_pop <- inner_join(x = internetusers_cia2017, y = population_cia2017, by = "Country")
+
+iu_pop
+
+ggplot(iu_pop, aes(x = `INTERNET USERS`, y = POPULATION)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm")
+
+fit_pop <- lm(`INTERNET USERS` ~ POPULATION,data = iu_pop)
+summary(fit_pop)
+
+##Internet usage and population without outliers
+iu_pop_no <- filter(iu_pop,`INTERNET USERS` <= 2e+08)
+ggplot(iu_pop_no, aes(x = POPULATION, y = `INTERNET USERS`)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm", level = 0.95)
+
+fit_pop_no <- lm(`INTERNET USERS` ~ POPULATION,data = iu_pop_no)
+summary(fit_pop_no)
+```
+
+
+```{r, include=FALSE}
+world_regions$Country[world_regions$Country == "Congo, The Democratic Republic of the"] <- "Congo, Democratic Republic of the"
+world_regions$Country[world_regions$Country == "Congo"] <- "Congo, Republic of the"
+world_regions$Country[world_regions$Country == "Korea, Republic of"] <- "Korea, South"
+world_regions$Country[world_regions$Country == "Czech Republic"] <- "Czechia"
+world_regions$Country[world_regions$Country == "Gambia"] <- "Gambia, The"
+world_regions$Country[world_regions$Country == "Myanmar"] <- "Burma"
+world_regions$Country[world_regions$Country == "Cape Verde"] <- "Cabo Verde"
+world_regions$Region[world_regions$Region == "Asic & Pacific"] <- "Asia & Pacific"
+regions_fil <- filter(world_regions, `Global South` != "Unknown")
+regions_fil$Country[regions_fil$Country == "C??te D'Ivoire"] <- "Cote d'Ivoire"
+
+##Boxplot of regions and internet users with outliers
+iu_region <- inner_join(x = internetusers_cia2017, regions_fil, by = "Country")
+ggplot(data = iu_region, aes(x=Region, y=`INTERNET USERS`, group=Region)) + geom_boxplot()
+
+##Boxplot of regions and internet users without outliers
+iu_region_no <- filter(iu_region, `INTERNET USERS` < 3.5e+07)
+
+ggplot(data = iu_region_no, aes(x=Region, y=`INTERNET USERS`, group=Region)) + geom_boxplot()
+
+##Scatterplot of regions and internet usage
+ggplot(iu_region, aes(y = `INTERNET USERS`, x = Region)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm")
+
+fit_regions <- lm(`INTERNET USERS` ~ Region,data = iu_region)
+summary(fit_regions)
+
+ggplot(iu_region_no, aes(y = `INTERNET USERS`, x = Region)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm")
+
+fit_regions_no <- lm(`INTERNET USERS` ~ Region,data = iu_region_no)
+summary(fit_regions_no)
+
+iu_region %>%
+ group_by(Region) %>%
+ summarise(n = n(), mean = mean(`INTERNET USERS`))
+
+```
+
+```{r, include=FALSE}
+##Cleaning the Democracy data
+
+##Removes extra unnecessary rows
+democracy_fil <- filter(democracyindex2017, `Score` != "Score")
+
+##Fixes the naming discrepancies in the democracy index
+democracy_fil$Country[democracy_fil$Country == "Ivory Coast"] <- "Cote d'Ivoire"
+democracy_fil$Country[democracy_fil$Country == "South Korea"] <- "Korea, South"
+democracy_fil$Country[democracy_fil$Country == "Democratic Republic of the Congo"] <- "Congo, Democratic Republic of the"
+democracy_fil$Country[democracy_fil$Country == "Republic of the Congo"] <- "Congo, Republic of the"
+democracy_fil$Country[democracy_fil$Country == "Gambia"] <- "Gambia, The"
+democracy_fil$Country[democracy_fil$Country == "Myanmar"] <- "Burma"
+democracy_fil$Country[democracy_fil$Country == "Republic of China (Taiwan)"] <- "Taiwan"
+democracy_fil$Country[democracy_fil$Country == "Cape Verde"] <- "Cabo Verde"
+democracy_fil$Country[democracy_fil$Country == "Czech Republic"] <- "Czechia"
+
+##Creates a data set for our analysis of internet usage and democracy
+iu_dem <- inner_join(x= internetusers_cia2017, y = democracy_fil, by = "Country")
+iu_dem$Score <- as.numeric(iu_dem$Score)
+
+iu_dem
+
+##Graph of internet usage and democracy with regression, no categories, with outliers
+ggplot(iu_dem, aes(x = Score, y = `INTERNET USERS`)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm")
+
+##Mean table for internet usage
+iu_dem%>%
+ group_by(Category) %>%
+ summarise(n = n(), mean = mean(Score))
+iu_dem
+
+##Graph of internet usage and democracy split into subgroups of government with outliers ##and regression and CI
+ggplot(iu_dem, aes(x = Score, y = `INTERNET USERS`, colour = Category)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm")
+
+fit_dem <- lm(`INTERNET USERS` ~ Score, data = iu_dem)
+summary(fit_dem)
+
+##Removal of major outliers
+Total_noout <- filter(iu_dem, `INTERNET USERS` < 1e+8)
+
+##Graph of subcategorized regression lines without outliers
+ggplot(Total_noout, aes(x = Score, y = `INTERNET USERS`, colour = Category)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm")
+
+##Graph non grouped without outliers
+ggplot(Total_noout, aes(x = Score, y = `INTERNET USERS`)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm")
+
+
+fit_dem_no <- lm(`INTERNET USERS` ~ Score, data = Total_noout)
+summary(fit_dem_no)
+```
+
+```{r, include=FALSE}
+population_fill <- select(population_cia2017, Country,POPULATION)
+gdpppp_fill <- select(gdpppp_cia2017, Country, `GDP - PER CAPITA (PPP)`)
+
+GDP_TOTAL <- full_join(x = population_fill, y = gdpppp_fill, by = "Country" )
+GDP_TOTAL <- filter(GDP_TOTAL, !is.na(GDP_TOTAL$`GDP - PER CAPITA (PPP)`))
+GDP_TOTAL <- filter(GDP_TOTAL, !is.na(GDP_TOTAL$POPULATION))
+
+##removes characters and makes numeric
+GDP_TOTAL <- mutate(.data = GDP_TOTAL, `GDP - PER CAPITA (PPP)` = gsub("\\$", "", (GDP_TOTAL$`GDP - PER CAPITA (PPP)`)))
+GDP_TOTAL <- mutate(.data = GDP_TOTAL, `GDP - PER CAPITA (PPP)` = gsub(",", "", (GDP_TOTAL$`GDP - PER CAPITA (PPP)`)))
+GDP_TOTAL$`GDP - PER CAPITA (PPP)` <- as.numeric(GDP_TOTAL$`GDP - PER CAPITA (PPP)`)
+
+GDP_TOTAL$Total <- GDP_TOTAL$`GDP - PER CAPITA (PPP)`
+
+##mutate to find total gdp
+GDP_TOTAL <- mutate(.data = GDP_TOTAL, Total = (GDP_TOTAL$POPULATION * GDP_TOTAL$`GDP - PER CAPITA (PPP)`))
+
+GDP_TOTAL
+
+internetusers_cia2017 <- filter(internetusers_cia2017, `INTERNET USERS` < 2e+08)
+iu_ttgdp <- inner_join(x = internetusers_cia2017, y = GDP_TOTAL, by = "Country")
+ggplot(data = iu_ttgdp, aes(x=Total, y=`INTERNET USERS`, group=Total)) + geom_boxplot()
+ggplot(iu_ttgdp, aes(y = `INTERNET USERS`, x = Total)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm")
+
+fit_ttgdp <- lm(`INTERNET USERS` ~ Total,data = iu_ttgdp)
+summary(fit_ttgdp)
+
+iu_ttgdp_no <- filter(iu_ttgdp, Total < 5.0e+12)
+
+ggplot(iu_ttgdp_no, aes(y = `INTERNET USERS`, x = Total)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm")
+
+fit_ttgdp_no <- lm(`INTERNET USERS` ~ Total,data = iu_ttgdp)
+summary(fit_ttgdp_no)
+```
+
+```{r, include=FALSE}
+iu_edu <- inner_join(x = internetusers_cia2017, y = education_cia2017, by = "Country")
+
+iu_edu
+
+ggplot(iu_edu, aes(y = `INTERNET USERS`, x = `(% OF GDP)`)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm", fill = NA)
+fit_pedu <- lm(`INTERNET USERS` ~ `(% OF GDP)`,data = iu_edu)
+summary(fit_pedu)
+```
+
+```{r, include=FALSE}
+library(tidyverse)
+path <- "https://raw.githubusercontent.com/ntaback/UofT_STA130/master/Fall2018/Finalproject/"
+
+##calling all the datasets needed
+democracyindex2017 <- read_csv(paste0(path,"democracyindex2017.csv"))
+education_cia2017 <- read_csv(paste0(path,"education_cia2017.csv"))
+gdpppp_cia2017 <- read_csv(paste0(path,"gdpppp_cia2017.csv"))
+lifeexpect_cia2017 <- read_csv(paste0(path,"lifeexpect_cia2017.csv"))
+healthexpend_cia2017 <- read_csv(paste0(path,"healthexpend_cia2017.csv"))
+internetusers_cia2017 <- read_csv(paste0(path,"internetusers_cia2017.csv"))
+population_cia2017 <- read_csv(paste0(path,"population_cia2017.csv"))
+world_regions <- read_csv(paste0(path,"world_regions.csv"))
+
+
+education_fill <- select(education_cia2017, Country,`(% OF GDP)`)
+GDP_TOTAL_fill <- select(GDP_TOTAL, Total, Country)
+GDP_TOTAL <- filter(GDP_TOTAL, !is.na(GDP_TOTAL$POPULATION))
+
+EDU <- full_join(x = education_fill, y = GDP_TOTAL_fill, by = "Country")
+ 
+EDU$EDU_GDP <- EDU$Total
+  EDU <- mutate(.data = EDU, EDU_GDP = ((EDU$`(% OF GDP)` / 100) * EDU$Total ))
+  
+EDU <- filter(EDU, !is.na(EDU$EDU_GDP))
+
+INTER_EDU <- inner_join(x = internetusers_cia2017, y = EDU, by = "Country")
+INTER_EDU <- select(INTER_EDU, Country, `INTERNET USERS`, EDU_GDP)
+
+ggplot(INTER_EDU, aes(x = `INTERNET USERS`, y = EDU_GDP)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm")
+
+fit_edu <- lm(`INTERNET USERS` ~EDU_GDP, data = INTER_EDU)
+summary(fit_edu)
+
+##Without Outlier
+INTER_EDU_NO <- filter(INTER_EDU, `INTERNET USERS` < 2e+08)
+
+ggplot(INTER_EDU_NO, aes(x = `INTERNET USERS`, y = EDU_GDP)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm")
+
+
+fit_edu_no <- lm(`INTERNET USERS` ~EDU_GDP, data = INTER_EDU_NO)
+summary(fit_edu_no)
+
+```
+
+```{r, include=FALSE}
+iu_gdpppp <- inner_join(x = internetusers_cia2017, y = gdpppp_cia2017, by = "Country")
+
+##removes "$" signs
+iu_gdpppp <- mutate(.data = iu_gdpppp, `GDP - PER CAPITA (PPP)` = gsub("\\$", "", (iu_gdpppp$`GDP - PER CAPITA (PPP)`)))
+
+##removes ???,???
+iu_gdpppp <- mutate(.data = iu_gdpppp, `GDP - PER CAPITA (PPP)` = gsub(",", "", (iu_gdpppp$`GDP - PER CAPITA (PPP)`)))
+
+##Changes to numerics
+iu_gdpppp$`GDP - PER CAPITA (PPP)` <- as.numeric(iu_gdpppp$`GDP - PER CAPITA (PPP)`)
+iu_gdpppp
+
+#plots internet use and gdpppp
+ggplot(iu_gdpppp, aes(x = `GDP - PER CAPITA (PPP)`, y = `INTERNET USERS`)) + 
+  geom_point() + theme_bw() +
+  geom_smooth(method = "lm")
+
+fit_gdpppp <- lm(`INTERNET USERS` ~ `GDP - PER CAPITA (PPP)`,data = iu_gdpppp)
+summary(fit_gdpppp)
+```
+
+
+```{r, include=FALSE}
+iu_life <- inner_join(x = internetusers_cia2017, y = lifeexpect_cia2017, by = "Country")
+
+iu_life
+
+ggplot(iu_life, aes(x = `(YEARS)`, y = `INTERNET USERS`)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm", fill = NA)
+
+fit_life <- lm(`INTERNET USERS` ~ `(YEARS)`,data = iu_life)
+summary(fit_life)
+```
+
+```{r, include=FALSE}
+iu_health <- inner_join(x = internetusers_cia2017, healthexpend_cia2017, by = "Country")
+
+ggplot(iu_health, aes(y = `INTERNET USERS`, x = `(% OF GDP)`)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm", fill = NA)
+
+fit_phealth <- lm(`INTERNET USERS` ~ `(% OF GDP)`,data = iu_health)
+summary(fit_phealth)
+```
+
+
+```{r, include=FALSE}
+library(tidyverse)
+path <- "https://raw.githubusercontent.com/ntaback/UofT_STA130/master/Fall2018/Finalproject/"
+
+##calling all the datasets needed
+democracyindex2017 <- read_csv(paste0(path,"democracyindex2017.csv"))
+education_cia2017 <- read_csv(paste0(path,"education_cia2017.csv"))
+gdpppp_cia2017 <- read_csv(paste0(path,"gdpppp_cia2017.csv"))
+lifeexpect_cia2017 <- read_csv(paste0(path,"lifeexpect_cia2017.csv"))
+healthexpend_cia2017 <- read_csv(paste0(path,"healthexpend_cia2017.csv"))
+internetusers_cia2017 <- read_csv(paste0(path,"internetusers_cia2017.csv"))
+population_cia2017 <- read_csv(paste0(path,"population_cia2017.csv"))
+world_regions <- read_csv(paste0(path,"world_regions.csv"))
+
+
+
+HEALTH_TOTAL <- inner_join(x= GDP_TOTAL, y = healthexpend_cia2017, by = "Country" )
+HEALTH_TOTAL$`Health Total` <- HEALTH_TOTAL$`GDP - PER CAPITA (PPP)`
+HEALTH_TOTAL <- mutate(.data = HEALTH_TOTAL, `Health Total` = ((HEALTH_TOTAL$`(% OF GDP)`/100 )* HEALTH_TOTAL$`Total`))
+
+iu_health <- inner_join(x = internetusers_cia2017, y = HEALTH_TOTAL, by = "Country")
+
+ggplot(iu_health, aes(x = `Health Total`, y = `INTERNET USERS`)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm")
+
+fit_health <- lm(`INTERNET USERS` ~`Health Total`,data = iu_health)
+summary(fit_health)
+
+#removed 3 outliers
+iu_health_no <- filter(iu_health, `Health Total` < 1e+12)
+Iu_health_no <- filter(iu_health_no, `INTERNET USERS` < 2e+8)
+
+ggplot(iu_health_no, aes(x = `Health Total`, y = `INTERNET USERS`)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm")
+
+fit_health_no <- lm(`INTERNET USERS` ~ `Health Total`,data = iu_health_no)
+summary(fit_health_no)
+
+```
+
+
+
+
+
+## Introduction
+
+- For this final project in STA 130, we were tasked with analyzing data from the World Factbook, published by the US Central Intelligence Agency (CIA)
+- We wanted to look specifically at the internet usage, and how other factors relate to internet usage in different countries
+- We used information on internet users, health expenditure, education expenditure, democracy index, GDP and population
+- For this analysis we needed to answer three questions
+
+
+## Objectives 
+- How did we define internet use?
+- What can we conclude on internet use for different regions of the world
+- What do we define as democracy, education, economy, and health and how is internet use affected by these factors?
+
+## Definitions
+- Internet use: The number of people who have use internet in any form at least a few times in a year
+- Democracy: A mean score of different aspects of governments by The Economist Intelligence Unit
+- Economy: A countries total GDP found using its population and GDP per capita
+- Education: The total amount of the GDP spent on education
+- Health: The total amount of the GDP spent on healthcare
+
+## Data Summary Part 1
+- We needed to clean the data that we were provided. So what did we do?
+- Look for and change any name discrepancies between the data sets
+- Change data that is a number counted as a string/character back into a 
+numeric value
+- Remove any regions or countries from the data sets that we are missing 
+information for. Example below
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+library(tidyverse)
+path <- "https://raw.githubusercontent.com/ntaback/UofT_STA130/master/Fall2018/Finalproject/"
+world_regions <- read_csv(paste0(path,"world_regions.csv"))
+EX1 <- filter(world_regions, Country == "Anonymous Proxy" )
+EX1
+```
+
+## Data Summary Part 2
+- Remove any unnecessary rows & columns and add any that we needed. Example below
+```{r, echo=FALSE, message=FALSE, warning=FALSE, fig.height=3}
+library(tidyverse)
+path <- "https://raw.githubusercontent.com/ntaback/UofT_STA130/master/Fall2018/Finalproject/"
+
+democracyindex2017 <- read_csv(paste0(path,"democracyindex2017.csv"))
+EX2 <- filter (democracyindex2017, Score == "Score")
+head(EX2)
+```
+- We also created variables for the Total GDP, and the Total amounts spent on health and education. This is because GDP per capita is heavily affected by population and percentage of GDP by the total GDP
+
+## Statistical Methods
+ Internet users and world regions with and without outlier
+```{r}
+gridExtra::grid.arrange(ggplot(data = iu_region, aes(x=Region, y=`INTERNET USERS`, group=Region)) + geom_boxplot(),ggplot(data = iu_region_no, aes(x=Region, y=`INTERNET USERS`, group=Region)) + geom_boxplot())
+```
+
+## Internet users and world region
+```{r}
+summary(fit_regions)
+```
+
+## Internet users and population with and without outlier
+```{r}
+gridExtra::grid.arrange(ggplot(iu_pop, aes(x = `INTERNET USERS`, y = POPULATION)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm"),ggplot(iu_pop_no, aes(x = POPULATION, y = `INTERNET USERS`)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm", level = 0.95))
+```
+
+## Internet users and population
+```{r}
+summary(fit_pop)
+```
+
+## Internet users and democracy with and without outlier
+```{r}
+gridExtra::grid.arrange(ggplot(iu_dem, aes(x = Score, y = `INTERNET USERS`)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm"),ggplot(Total_noout, aes(x = Score, y = `INTERNET USERS`)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm"), ggplot(iu_dem, aes(x = Score, y = `INTERNET USERS`, colour = Category)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm"),ggplot(Total_noout, aes(x = Score, y = `INTERNET USERS`, colour = Category)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm"))
+```
+
+## Internet users and democracy mean table
+```{r}
+iu_dem%>%
+ group_by(Category) %>%
+ summarise(n = n(), mean = mean(Score))
+```
+
+## Internet users and democracy
+```{r}
+summary(fit_dem)
+```
+
+## Internet users and education with with and without outlier
+```{r}
+gridExtra::grid.arrange(ggplot(INTER_EDU, aes(x = `INTERNET USERS`, y = EDU_GDP)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm"),ggplot(INTER_EDU_NO, aes(x = `INTERNET USERS`, y = EDU_GDP)) + 
+  geom_point(alpha = 0.3) + theme_bw() +
+  geom_smooth(method = "lm"))
+```
+
+## Internet users and education 
+```{r}
+summary(fit_edu)
+```
+
+## Internet users and total GDP with and without outlier
+```{r}
+gridExtra::grid.arrange(ggplot(iu_ttgdp, aes(y = `INTERNET USERS`, x = Total)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm"), ggplot(iu_ttgdp_no, aes(y = `INTERNET USERS`, x = Total)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm"))
+```
+
+## Internet users and total GDP
+```{r, echo = FALSE}
+summary(fit_ttgdp)
+```
+
+## Internet users and health with and without outlier
+```{r}
+gridExtra::grid.arrange(ggplot(iu_health, aes(x = `Health Total`, y = `INTERNET USERS`)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm"), ggplot(iu_health_no, aes(x = `Health Total`, y = `INTERNET USERS`)) + geom_point(alpha = 0.3) + theme_bw() + geom_smooth(method = "lm"))
+
+```
+
+## Internet users and health
+```{r}
+summary(fit_health)
+```
+
+## Conclusion
+- Summary
+  
+  - Region does not affect internet use
+  - Education, Economy(GDP) and Health affect internet usage
+
+- Limitation and Challenge
+  
+  - Region name not match
+  - Data cannot be use directly(GDP,Education percentage)
+  - Extra rows (NAs)
+  - Data missing
